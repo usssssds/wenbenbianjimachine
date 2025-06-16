@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>文本编辑器 - 格式保存</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+  <style>
+    .drag-handle {
+      user-select: none;
+      cursor: grab;
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      background-color: white;
+      border: 1px solid #ccc;
+      border-radius: 20px;
+    }
+    [contenteditable][placeholder]:empty:before {
+      content: attr(placeholder);
+      color: #aaa;
+    }
+  </style>
+</head>
+<body class="min-h-screen" style="background: url('C:/Users/zego/Desktop/zixungeshi/background.png') repeat;">  <div class="container mx-auto p-6 max-w-5xl">
+    <header class="text-center mb-10">
+      <h1 class="text-3xl font-bold text-blue-700 mb-2">文本编辑器 - 格式自定义</h1>
+      <p class="text-gray-600">支持拖拽、格式保存、预览及导出</p>
+    </header>
+
+    <section class="mb-6">
+      <label class="block mb-2 font-medium">格式输入框（模板设置）</label>
+      <div id="formatEditable"
+           contenteditable="true"
+           class="w-full border border-gray-300 rounded-lg p-4 min-h-[150px] bg-white focus:outline-none whitespace-pre-wrap"
+           placeholder="请输入格式内容，拖动📌或🕰插入...">
+      </div>
+      <div class="flex mt-2 gap-2 flex-wrap items-center">
+        <input id="formatName" class="border-2 border-black-300 rounded px-2 py-1" placeholder="命名格式...">
+        <button id="saveFormatBtn" class="bg-blue-600 text-white px-4 py-2 rounded">保存格式</button>
+        <select id="formatSelect" class="border-2 border-black-300 rounded px-2 py-2">
+          <option disabled selected>选择已有格式</option>
+        </select>
+        <button id="deleteFormatBtn" class="text-sm text-red-600 hover:underline">删除选中格式</button>
+      </div>
+    </section>
+
+    <section class="mb-6">
+      <label class="block mb-2 font-medium">文本输入框</label>
+      <div class="flex gap-2 items-start">
+        <textarea id="newsInput" class="w-full border-2 border-black-300 rounded-lg p-4 h-48 resize-none" placeholder="请输入资讯内容..."></textarea>
+        <div class="flex flex-col gap-2">
+          <div id="dragHandle" draggable="true" title="拖动文本图标至格式输入框以放置输入文本位置" class="drag-handle">📌</div>
+          <div id="timeDrag" draggable="true" title="单击以设置时间格式，拖动时间图标至格式输入框以放置时间位置" class="drag-handle">🕰</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="mb-6">
+      <h2 class="font-semibold text-lg mb-2">预览框</h2>
+      <div id="previewContainer" class="border-2 border-black-300 rounded-lg p-4 bg-white min-h-[150px] text-gray-800"></div>
+      <p class="text-sm text-gray-600 mt-2">当前预览字符数：<span id="charCount">0</span> 字</p>
+
+    </section>
+
+    <div class="flex gap-4 mb-10 flex-wrap">
+      <button id="downloadBtn" class="bg-green-600 text-white px-6 py-2 rounded"><i class="fa fa-download mr-2"></i>下载为 Word</button>
+      <button id="wechatShareBtn" class="bg-[#07C160] text-white px-6 py-2 rounded"><i class="fa fa-wechat mr-2"></i>微信分享</button>
+      <button id="feishuShareBtn" class="bg-[#4A6CF7] text-white px-6 py-2 rounded"><i class="fa fa-share-alt mr-2"></i>飞书分享</button>
+      <button id="linkShareBtn" class="bg-gray-600 text-white px-6 py-2 rounded"><i class="fa fa-link mr-2"></i>复制链接分享</button>
+
+    </div>
+  </div>
+
+  <div id="timeModal" class="fixed inset-0 bg-black bg-opacity-40 hidden items-center justify-center z-50">
+    <div class="bg-white rounded-lg p-6 w-72">
+      <h3 class="text-lg font-semibold mb-4">选择时间格式</h3>
+      <div class="flex flex-col gap-2 mb-4">
+        <label><input type="checkbox" value="year" class="time-option"> 年</label>
+        <label><input type="checkbox" value="month" class="time-option"> 月</label>
+        <label><input type="checkbox" value="date" class="time-option"> 日</label>
+        <label><input type="checkbox" value="day" class="time-option"> 星期</label>
+        <label><input type="checkbox" value="hour" class="time-option"> 时</label>
+        <label><input type="checkbox" value="minute" class="time-option"> 分</label>
+      </div>
+      <div class="flex justify-end gap-2">
+        <button id="cancelTimeBtn" class="text-gray-500">取消</button>
+        <button id="saveTimeBtn" class="bg-blue-600 text-white px-3 py-1 rounded">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const formatEditable = document.getElementById('formatEditable');
+    const newsInput = document.getElementById('newsInput');
+    const previewContainer = document.getElementById('previewContainer');
+    let selectedTimeFormat = [];
+
+    document.getElementById('dragHandle').addEventListener('dragstart', (e) => {
+      e.dataTransfer.setData('text/plain', '📌');
+    });
+
+    document.getElementById('timeDrag').addEventListener('click', () => {
+      document.getElementById('timeModal').classList.remove('hidden');
+    });
+
+    document.getElementById('timeDrag').addEventListener('dragstart', (e) => {
+      e.dataTransfer.setData('text/plain', '🕰');
+    });
+
+    document.getElementById('cancelTimeBtn').addEventListener('click', () => {
+      document.getElementById('timeModal').classList.add('hidden');
+    });
+
+    document.getElementById('saveTimeBtn').addEventListener('click', () => {
+      const options = document.querySelectorAll('.time-option:checked');
+      selectedTimeFormat = Array.from(options).map(opt => opt.value);
+      document.getElementById('timeModal').classList.add('hidden');
+      alert('时间格式设置成功，您可拖动🕰至格式输入框。');
+    });
+
+    formatEditable.addEventListener('dragover', (e) => e.preventDefault());
+
+    formatEditable.addEventListener('drop', (e) => {
+      e.preventDefault();
+      const data = e.dataTransfer.getData('text/plain');
+      const range = document.caretRangeFromPoint
+        ? document.caretRangeFromPoint(e.clientX, e.clientY)
+        : document.caretPositionFromPoint(e.clientX, e.clientY);
+      if (range) {
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+        document.execCommand('insertText', false, data);
+        updatePreview();
+      }
+    });
+
+    document.getElementById('saveFormatBtn').addEventListener('click', () => {
+      const name = document.getElementById('formatName').value.trim();
+      const content = formatEditable.innerHTML.trim();
+      if (!name || !content) return alert('请输入格式名称和内容');
+      const formats = JSON.parse(localStorage.getItem('formats') || '{}');
+      formats[name] = { content, timeFormat: selectedTimeFormat };
+      localStorage.setItem('formats', JSON.stringify(formats));
+      loadFormats();
+      alert('格式已保存');
+    });
+
+    document.getElementById('deleteFormatBtn').addEventListener('click', () => {
+      const selected = document.getElementById('formatSelect').value;
+      const formats = JSON.parse(localStorage.getItem('formats') || '{}');
+      if (!selected || !formats[selected]) return alert('请选择要删除的格式');
+      delete formats[selected];
+      localStorage.setItem('formats', JSON.stringify(formats));
+      loadFormats();
+      formatEditable.innerHTML = '';
+      updatePreview();
+    });
+
+    document.getElementById('formatSelect').addEventListener('change', function () {
+      const formats = JSON.parse(localStorage.getItem('formats') || '{}');
+      if (formats[this.value]) {
+        formatEditable.innerHTML = formats[this.value].content || '';
+        selectedTimeFormat = formats[this.value].timeFormat || [];
+      }
+      updatePreview();
+    });
+
+    function loadFormats() {
+      const select = document.getElementById('formatSelect');
+      const formats = JSON.parse(localStorage.getItem('formats') || '{}');
+      select.innerHTML = '<option disabled selected>选择已有格式</option>';
+      for (const name in formats) {
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name;
+        select.appendChild(opt);
+      }
+    }
+
+    loadFormats();
+
+    function getFormattedDate() {
+      const now = new Date();
+      const parts = [];
+      const week = ['星期日','星期一','星期二','星期三','星期四','星期五','星期六'];
+      if (selectedTimeFormat.includes('year')) parts.push(now.getFullYear() + '年');
+      if (selectedTimeFormat.includes('month')) parts.push((now.getMonth()+1) + '月');
+      if (selectedTimeFormat.includes('date')) parts.push(now.getDate() + '日');
+      if (selectedTimeFormat.includes('day')) parts.push(week[now.getDay()]);
+      if (selectedTimeFormat.includes('hour')) parts.push(now.getHours() + '时');
+      if (selectedTimeFormat.includes('minute')) parts.push(now.getMinutes() + '分');
+      return parts.join('');
+    }
+
+    function updatePreview() {
+      const templateHTML = formatEditable.innerHTML || '';
+      const newsHTML = (newsInput.value || '').replace(/\n/g, '<br>');
+      const timeStr = getFormattedDate();
+      const finalHTML = templateHTML.replace(/📌/g, newsHTML).replace(/🕰/g, timeStr);
+      previewContainer.innerHTML = finalHTML;
+      const plainText = previewContainer.textContent || '';
+      document.getElementById('charCount').textContent = plainText.length;
+    }
+
+    formatEditable.addEventListener('input', updatePreview);
+    newsInput.addEventListener('input', updatePreview);
+
+    document.getElementById('downloadBtn').addEventListener('click', () => {
+      const blob = new Blob([
+        `<html><head><meta charset='UTF-8'></head><body><div style='font-family:Microsoft YaHei;'>${previewContainer.innerHTML}</div></body></html>`
+      ], { type: 'application/msword' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = '资讯文档.doc';
+      a.click();
+    });
+
+    document.getElementById('wechatShareBtn').addEventListener('click', () => {
+      const text = previewContainer.innerText;
+      navigator.clipboard.writeText(text);
+      alert('内容已复制，请粘贴至微信发送');
+      window.location.href = 'weixin://';
+    });
+
+    document.getElementById('feishuShareBtn').addEventListener('click', () => {
+      const text = previewContainer.innerText;
+      navigator.clipboard.writeText(text);
+      alert('内容已复制，请粘贴至飞书文档');
+      window.open('https://zegocloud.feishu.cn/drive/home/?docs_banner_login=', '_blank');
+    });
+
+
+document.getElementById('linkShareBtn').addEventListener('click', () => {
+  const previewHTML = previewContainer.innerHTML;
+  const blobContent = `
+    <!DOCTYPE html>
+    <html lang="zh-CN">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>资讯分享</title>
+      <style>
+        body {
+          font-family: Microsoft YaHei, sans-serif;
+          background: #f5f5f5;
+          padding: 2rem;
+          color: #333;
+        }
+        .content {
+          background: #fff;
+          padding: 2rem;
+          border-radius: 8px;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+          white-space: pre-wrap;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="content">${previewHTML}</div>
+    </body>
+    </html>
+  `;
+  const blob = new Blob([blobContent], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  navigator.clipboard.writeText(url)
+    .then(() => {
+      alert('链接已复制，可粘贴分享给好友查看内容');
+      window.open(url, '_blank');
+    })
+    .catch(() => {
+      alert('复制失败，请手动复制：' + url);
+    });
+});
+
+  </script>
+</body>
+</html>
